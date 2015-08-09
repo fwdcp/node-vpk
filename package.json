@@ -1,0 +1,24 @@
+{
+  "name": "vpk",
+  "version": "0.0.0",
+  "description": "parser and extractor for the Valve Pack Format",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fwdcp/node-vpk.git"
+  },
+  "keywords": [
+    "vpk",
+    "Valve"
+  ],
+  "author": "Forward Command Post (http://fwdcp.net)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/fwdcp/node-vpk/issues"
+  },
+  "homepage": "https://github.com/fwdcp/node-vpk#readme",
+  "dependencies": {
+    "crc": "^3.3.0",
+    "jbinary": "^2.1.3"
+  }
+}
