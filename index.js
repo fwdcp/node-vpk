@@ -112,6 +112,22 @@ class VPK {
         this.directoryPath = path;
     }
 
+    isValid() {
+        let header = new Buffer(HEADER_2_LENGTH);
+        let directoryFile = fs.openSync(this.directoryPath, 'r');
+        fs.readSync(directoryFile, header, 0, HEADER_2_LENGTH, 0);
+        let binary = new jBinary(header, TYPESET);
+
+        try {
+            binary.read('vpkHeader');
+
+            return true;
+        }
+        catch (e) {
+            return false;
+        }
+    }
+
     load() {
         let binary = new jBinary(fs.readFileSync(this.directoryPath), TYPESET);
 
