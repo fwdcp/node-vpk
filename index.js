@@ -102,6 +102,9 @@ let TYPESET = {
     })
 };
 
+let HEADER_1_LENGTH = 12;
+let HEADER_2_LENGTH = 28;
+
 let MAX_PATH = 260;
 
 class VPK {
@@ -137,10 +140,10 @@ class VPK {
                 let offset = this.header.treeLength;
 
                 if (this.header.version === 1) {
-                    offset += 12;
+                    offset += HEADER_1_LENGTH;
                 }
                 else if (this.header.version === 2) {
-                    offset += 16;
+                    offset += HEADER_2_LENGTH;
                 }
 
                 let directoryFile = fs.openSync(this.directoryPath, 'r');
