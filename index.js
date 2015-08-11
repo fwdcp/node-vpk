@@ -110,7 +110,9 @@ let MAX_PATH = 260;
 class VPK {
     constructor(path) {
         this.directoryPath = path;
+    }
 
+    load() {
         let binary = new jBinary(fs.readFileSync(this.directoryPath), TYPESET);
 
         this.header = binary.read('vpkHeader');
