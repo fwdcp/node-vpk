@@ -1,12 +1,12 @@
-"use strict";
+'use strict';
 
 var crc = require('crc');
 var fs = require('fs');
 var jBinary = require('jbinary');
-var path = require('path');
 
 let TYPESET = {
-    'jBinary.littleEndian': true,
+	'jBinary.littleEndian': true,
+	
     vpkHeader: jBinary.Type({
         read: function() {
             let header = {};
@@ -32,15 +32,16 @@ let TYPESET = {
 
             return header;
         }
-    }),
+	}),
+	
     vpkDirectoryEntry: jBinary.Type({
         read: function() {
             let entry = this.binary.read({
-                crc: 'uint32',
-                preloadBytes: 'uint16',
-                archiveIndex: 'uint16',
-                entryOffset: 'uint32',
-                entryLength: 'uint32'
+                crc: 'uint32',				// crc integrity
+				preloadBytes: 'uint16',		// size of preload (almost always 0) (used for small but critical files)
+				archiveIndex: 'uint16',		// on which archive the data is stored (7fff means on _dir archive)
+				entryOffset: 'uint32',		// if on _dir, this is offset of data from dirEntry end. If on other archive, offset from start of it
+				entryLength: 'uint32'		// size of data
             });
 
             let terminator = this.binary.read('uint16');
@@ -50,7 +51,8 @@ let TYPESET = {
 
             return entry;
         }
-    }),
+	}),
+	
     vpkTree: jBinary.Type({
         read: function() {
             let files = {};
@@ -102,14 +104,16 @@ let TYPESET = {
     })
 };
 
+// header size in bytes
 let HEADER_1_LENGTH = 12;
 let HEADER_2_LENGTH = 28;
 
-let MAX_PATH = 260;
+// let MAX_PATH = 260;
 
 class VPK {
     constructor(path) {
-        this.directoryPath = path;
+		this.directoryPath = path;
+		this.loaded = false;
     }
 
     isValid() {
@@ -123,7 +127,7 @@ class VPK {
 
             return true;
         }
-        catch (e) {
+        catch (error) {
             return false;
         }
     }
@@ -131,8 +135,13 @@ class VPK {
     load() {
         let binary = new jBinary(fs.readFileSync(this.directoryPath), TYPESET);
 
-        this.header = binary.read('vpkHeader');
-        this.tree = binary.read('vpkTree');
+		try{
+        	this.header = binary.read('vpkHeader');
+			this.tree = binary.read('vpkTree');
+			this.loaded = true;
+		} catch(error) {
+			throw new Error('Failed loading ' + this.directoryPath);
+		}
     }
 
     get files() {
@@ -168,6 +177,7 @@ class VPK {
                 fs.readSync(directoryFile, file, entry.preloadBytes, entry.entryLength, offset + entry.entryOffset);
             }
             else {
+				// read from specified archive
                 let fileIndex = ('000' + entry.archiveIndex).slice(-3);
                 let archivePath = this.directoryPath.replace(/_dir\.vpk$/, '_' + fileIndex + '.vpk');
 
@@ -181,7 +191,60 @@ class VPK {
         }
 
         return file;
-    }
+	}
+	
+	extract(destinationDir) {
+		// if not loaded yet, load it
+		if(this.loaded === false){
+			try {
+				this.load();
+			} catch (error) {
+				throw new Error('VPK was not loaded and it failed loading');
+			}
+		}
+
+		var failed = [];
+		// make sure destinationDir exists
+		try {
+			fs.ensureDirSync(destinationDir);
+		} catch (error) {
+			throw new Error('Destination dir cant be ensured');
+		}
+
+		// extract files one by one
+		for (var file of this.files) {
+			// destination of this file (with file name and extension)
+			var destFile = destinationDir + '/' + file;
+			// destination of this file (only the directory)
+			var fileDestDir = destFile.substr(0, destFile.lastIndexOf('/'));
+
+			// make sure destination dir of this file exists
+			try {
+				fs.ensureDirSync(fileDestDir);
+			} catch (error) {
+				throw new Error('Error ensuring file directory: ' + fileDestDir);
+			}
+
+			// get the file
+			try {
+				var fileBuffer = this.getFile(file);
+			} catch (error) {
+				throw error;
+			}
+
+			// write it
+			try {
+				fs.writeFileSync(destFile, fileBuffer);
+			} catch (error) {
+				failed.push(destFile);
+			}
+		}
+
+		// throw all failed files
+		if (failed.length !== 0) {
+			throw new Error('Failed extrating following files: \r\n' + failed.toString());
+		}
+	}
 }
 
 module.exports = VPK;
