@@ -1,7 +1,7 @@
 'use strict';
 
 var crc = require('crc');
-var fs = require('fs');
+var fs = require('fs-extra');
 var jBinary = require('jbinary');
 
 let TYPESET = {
