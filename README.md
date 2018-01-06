@@ -3,7 +3,7 @@ extractor and creator for the Valve Pack Format
 
 ### Prerequisites
 
-Requires fs-extra and jBinary,
+Requires fs-extra, jBinary and crc,
 but npm will install them automatically if you follow my instructions
 
 ### Installing
@@ -15,7 +15,7 @@ or locally
 ```
 npm install vpk
 ```
-(Those will also install fs-extra and jBinary, no need to worry about them)
+(Those will also install dependencies, no need to worry about them)
 ### How to use
 
 To extract a V1/V2 VPK:
