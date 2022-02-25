@@ -1,7 +1,7 @@
 "use strict";
 
 var crc = require('crc');
-var fs = require('fs');
+var fs = require('fs/promises');
 var jBinary = require('jbinary');
 var path = require('path');
 
@@ -112,15 +112,15 @@ class VPK {
         this.directoryPath = path;
     }
 
-    isValid() {
-        let header = new Buffer(HEADER_2_LENGTH);
-        let directoryFile = fs.openSync(this.directoryPath, 'r');
-        fs.readSync(directoryFile, header, 0, HEADER_2_LENGTH, 0);
+    async isValid() {
+        let header = Buffer.alloc(HEADER_2_LENGTH);
+        const directoryPathHandle = await fs.open(this.directoryPath);
+        await directoryPathHandle.read(header, 0, HEADER_2_LENGTH, 0);
+        await directoryPathHandle.close();
         let binary = new jBinary(header, TYPESET);
 
         try {
             binary.read('vpkHeader');
-
             return true;
         }
         catch (e) {
@@ -128,8 +128,9 @@ class VPK {
         }
     }
 
-    load() {
-        let binary = new jBinary(fs.readFileSync(this.directoryPath), TYPESET);
+    async load() {
+        const directoryFileBuffer = await fs.readFile(this.directoryPath);
+        let binary = new jBinary(directoryFileBuffer, TYPESET);
 
         this.header = binary.read('vpkHeader');
         this.tree = binary.read('vpkTree');
@@ -139,18 +140,18 @@ class VPK {
         return Object.keys(this.tree);
     }
 
-    getFile(path) {
+    async getFile(path) {
         let entry = this.tree[path];
 
         if (!entry) {
             return null;
         }
 
-        let file = new Buffer(entry.preloadBytes + entry.entryLength);
+        let file = Buffer.alloc(entry.preloadBytes + entry.entryLength);
+        const directoryPathHandle = await fs.open(this.directoryPath);
 
         if (entry.preloadBytes > 0) {
-            let directoryFile = fs.openSync(this.directoryPath, 'r');
-            fs.readSync(directoryFile, file, 0, entry.preloadBytes, entry.preloadOffset);
+            await directoryPathHandle.read(file, 0, entry.preloadBytes, entry.preloadOffset);
         }
 
         if (entry.entryLength > 0) {
@@ -164,17 +165,19 @@ class VPK {
                     offset += HEADER_2_LENGTH;
                 }
 
-                let directoryFile = fs.openSync(this.directoryPath, 'r');
-                fs.readSync(directoryFile, file, entry.preloadBytes, entry.entryLength, offset + entry.entryOffset);
+                await directoryPathHandle.read(file, entry.preloadBytes, entry.entryLength, (offset + entry.entryOffset));
             }
             else {
                 let fileIndex = ('000' + entry.archiveIndex).slice(-3);
                 let archivePath = this.directoryPath.replace(/_dir\.vpk$/, '_' + fileIndex + '.vpk');
 
-                let archiveFile = fs.openSync(archivePath, 'r');
-                fs.readSync(archiveFile, file, entry.preloadBytes, entry.entryLength, entry.entryOffset);
+                const archivePathHandle = await fs.open(archivePath);
+                await archivePathHandle.read(file, entry.preloadBytes, entry.entryLength, entry.entryOffset);
+                await archivePathHandle.close();
             }
         }
+
+        await directoryPathHandle.close();
 
         if (crc.crc32(file) !== entry.crc) {
             throw new Error('CRC does not match');
